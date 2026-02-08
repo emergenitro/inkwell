@@ -7,6 +7,10 @@ export default function Home() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editContent, setEditContent] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [modalEntryId, setModalEntryId] = useState(null);
 
   const inputRef = useRef(null);
 
@@ -129,16 +133,55 @@ export default function Home() {
       .finally(() => setLoading(false));
   };
 
+  const handleEditSave = async (entry) => {
+    if (editingId === entry._id) {
+      const res = await fetch(`/api/journal/${code}/entry/${entry._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent }),
+      });
+
+      if (res.ok) {
+        setEntries(entries.map((e) => 
+          e._id === entry._id ? { ...e, content: editContent } : e
+        ));
+        setEditingId(null);
+        setEditContent("");
+      }
+    } else {
+      setEditingId(entry._id);
+      setEditContent(entry.content);
+    }
+  };
+
+  const handleDeleteEntry = async (entryId) => {
+    const res = await fetch(`/api/journal/${code}/entry/${entryId}`, {
+      method: "DELETE",
+    });
+
+    if (res.ok) {
+      setEntries(entries.filter((e) => e._id !== entryId));
+      if (editingId === entryId) {
+        setEditingId(null);
+        setEditContent("");
+      }
+      if (modalEntryId === entryId) {
+        setShowModal(false);
+        setModalEntryId(null);
+      }
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex min-h-screen justify-center items-center font-fraunces text-white bg-gradient-to-br from-slate-900 to-slate-950">
+      <div className="flex min-h-screen justify-center items-center font-fraunces text-white">
         <h1 className="text-2xl font-normal animate-pulse">loading...</h1>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen justify-center items-center mx-auto font-fraunces text-white bg-gradient-to-br from-slate-900 to-slate-950 flex-col text-center w-8/10">
+    <div className="flex min-h-screen justify-center items-center mx-auto font-fraunces text-white flex-col text-center w-8/10">
       <main className="flex-1 mt-10 w-full">
         <h1 className="text-2xl font-normal">
           hey{" "}
@@ -191,19 +234,33 @@ export default function Home() {
             entries.map((entry) => (
               <div key={entry._id} className="mb-6">
                 <details className="group">
-                  <summary className="cursor-pointer list-none font-semibold text-white/80 group-open:mb-2">
-                    {entry.title || "untitled entry"} - <span className="text-sm font-normal text-white/50">{new Date(entry.timestamp).toLocaleDateString()}</span>
+                  <summary className="cursor-pointer list-none font-semibold text-white/80 group-open:mb-2 flex items-center gap-3 items-center justify-between">
+                    <span>{entry.title || "untitled entry"} - <span className="text-sm font-normal text-white/50">{new Date(entry.timestamp).toLocaleDateString()}</span></span>
+                    <div className="flex gap-2">
+                      <button className="text-xs bg-white/10 hover:bg-white/20 transition-colors duration-200 text-white/80 font-fraunces px-2 py-0.5 rounded-md hover:cursor-pointer" onClick={(e) => { e.stopPropagation(); handleEditSave(entry); }}>
+                        {editingId === entry._id ? "save" : "edit"}
+                      </button>
+                      <button className="text-xs bg-red-600/10 hover:bg-red-600/20 transition-colors duration-200 text-red-400 font-fraunces px-2 py-0.5 rounded-md hover:cursor-pointer" onClick={(e) => { e.stopPropagation(); setShowModal(entry._id); setModalEntryId(entry._id); }}>
+                        delete
+                      </button>
+                    </div>
                   </summary>
-                  <div className="mt-2 whitespace-pre-wrap">
-                    {entry.content}
-                  </div>
+                  {editingId === entry._id ? (
+                    <textarea
+                      className="mt-2 bg-transparent border-b-2 border-white/20 focus:border-white/80 outline-none transition-all duration-200 text-white/60 w-full field-sizing-content font-fraunces resize-none"
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                    ></textarea>
+                  ) : (
+                    <div className="mt-2 whitespace-pre-wrap">{entry.content}</div>
+                  )}
                 </details>
               </div>
             ))
           )}
         </div>
       </main>
-      <footer className="mb-4 text-sm text-white/40">
+      <footer className="mb-4 text-sm text-white/40 mt-10">
         {code && (
           <p className="text-sm text-white/50">
             your code: <span className="text-white/80 font-mono">{code}</span>
@@ -212,6 +269,24 @@ export default function Home() {
         <p>got a code already? <input type="text" placeholder="enter here" className="bg-transparent border-b-2 border-white/0 focus:border-white/80 outline-none text-center transition-all duration-200 placeholder:text-white/40 placeholder:font-light p-0 m-0 text-sm font-fraunces" onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }} onBlur={handleCodeInput}></input></p>
         your private journal. no accounts. no passwords.
       </footer>
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-slate-800 p-4 rounded-md text-center">
+            <p className="mb-4">are you sure you want to delete this entry?</p>
+            <div className="flex justify-center gap-4">
+              <button className="bg-red-600/10 hover:bg-red-600/20 transition-colors duration-200 text-red-400 font-fraunces px-4 py-2 rounded-md cursor-pointer" onClick={() => {
+                handleDeleteEntry(modalEntryId);
+              }}>
+                delete
+              </button>
+              <button className="bg-white/10 hover:bg-white/20 transition-colors duration-200 text-white/80 font-fraunces px-4 py-2 rounded-md cursor-pointer" onClick={() => setShowModal(false)}>
+                cancel
+              </button> 
+            </div>
+          </div>
+        </div>
+      )}
+      
     </div>
   );
 }
