@@ -227,6 +227,7 @@ export default function Home() {
             </div>
           </div>
         )}
+        { code && (
         <div className="mt-10 text-left text-white/60 mx-auto">
           {entries.length === 0 ? (
             <p className="italic">no entries yet.</p>
@@ -259,6 +260,7 @@ export default function Home() {
             ))
           )}
         </div>
+        )}
       </main>
       <footer className="mb-4 text-sm text-white/40 mt-10">
         {code && (
