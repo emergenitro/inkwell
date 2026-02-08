@@ -4,7 +4,9 @@ import { useState, useRef, useEffect } from "react";
 export default function Home() {
   const [name, setName] = useState("");
   const [code, setCode] = useState(null);
+  const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState([]);
 
   const inputRef = useRef(null);
 
@@ -15,6 +17,12 @@ export default function Home() {
         if (data.code) {
           setName(data.name);
           setCode(data.code);
+
+          return fetch(`/api/journal/${data.code}`)
+            .then((res) => res.json())
+            .then((entryData) => {
+              setEntries(entryData.entries || []);
+            });
         }
       })
       .finally(() => setLoading(false));
@@ -47,13 +55,7 @@ export default function Home() {
   useEffect(() => {
     if (!code) return;
     document.title = `${name || "stranger"}'s Journal`;
-
-    fetch(`/api/journal/${code}`)
-      .then((res) => res.json())
-      .then((data) => {
-        console.log(data);
-      });
-  }, [code, loading]);
+  }, [code, name]);
 
   const handleOnChange = (e) => {
     setName(e.target.value);
@@ -73,9 +75,38 @@ export default function Home() {
 
   };
 
-  const handleOnClick = () => {
-    alert("saving entries is not implemented yet!");
-  }
+  const handleOnClick = async () => {
+    const title = document.querySelector('input[placeholder="title..."]').value;
+    const content = document.querySelector('textarea[placeholder="your thoughts..."]').value;
+
+    const newErrors = [];
+    if (!title.trim()) newErrors.push("title");
+    if (!content.trim()) newErrors.push("content");
+
+    if (newErrors.length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    const res = await fetch(`/api/journal/${code}/entry`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, content }),
+    });
+
+    if (res.ok) {
+      setErrors([]);
+      fetch(`/api/journal/${code}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setEntries(data.entries || []);
+        })
+        .finally(() => {
+          document.querySelector('input[placeholder="title..."]').value = "";
+          document.querySelector('textarea[placeholder="your thoughts..."]').value = "";
+        });
+    }
+  };
 
   if (loading) {
     return (
@@ -114,8 +145,17 @@ export default function Home() {
         </div>
         { code && (
           <div className="text-left mt-6 text-white/60 mx-auto">
-            <input type="text" placeholder="title..." className="mt-10 bg-transparent border-b-2 border-white/20 focus:border-white/80 outline-none transition-all duration-200 placeholder:text-white/40 placeholder:font-light p-0 m-0 text-lg font-fraunces w-full"></input>
-            <textarea placeholder="your thoughts..." className="mt-6 bg-transparent border-b-2 border-white/20 focus:border-white/80 outline-none transition-all duration-200 placeholder:text-white/40 placeholder:font-light m-0 text-md font-fraunces w-full h-48 resize-none"></textarea>
+            <input type="text" placeholder="title..." className={`mt-10 bg-transparent border-b-2 ${errors.includes("title") ? "border-red-400/70" : "border-white/20"} focus:border-white/80 outline-none transition-all duration-200 placeholder:text-white/40 placeholder:font-light p-0 m-0 text-lg font-fraunces w-full`} onFocus={() => setErrors(errors.filter(e => e !== "title"))}></input>
+            <textarea placeholder="your thoughts..." className={`mt-6 bg-transparent border-b-2 ${errors.includes("content") ? "border-red-400/70" : "border-white/20"} focus:border-white/80 outline-none transition-all duration-200 placeholder:text-white/40 placeholder:font-light m-0 text-md font-fraunces w-full h-48 resize-none`} onFocus={() => setErrors(errors.filter(e => e !== "content"))}></textarea>
+            {errors.length > 0 && (
+              <p className="text-red-400/70 text-sm mt-2 transition-opacity duration-200">
+                {errors.includes("title") && errors.includes("content")
+                  ? "give your entry a title and some thoughts."
+                  : errors.includes("title")
+                  ? "give your entry a title."
+                  : "write something before saving."}
+              </p>
+            )}
             <div className="flex justify-end mt-4">
               <button className="bg-white/10 hover:bg-white/20 transition-colors duration-200 text-white/80 font-fraunces px-4 py-2 rounded-md hover:cursor-pointer" onClick={handleOnClick}>
                 save entry
@@ -123,6 +163,24 @@ export default function Home() {
             </div>
           </div>
         )}
+        <div className="mt-10 text-left text-white/60 mx-auto">
+          {entries.length === 0 ? (
+            <p className="italic">no entries yet.</p>
+          ) : (
+            entries.map((entry) => (
+              <div key={entry._id} className="mb-6">
+                <details className="group">
+                  <summary className="cursor-pointer list-none font-semibold text-white/80 group-open:mb-2">
+                    {entry.title || "untitled entry"} - <span className="text-sm font-normal text-white/50">{new Date(entry.timestamp).toLocaleDateString()}</span>
+                  </summary>
+                  <div className="mt-2 whitespace-pre-wrap">
+                    {entry.content}
+                  </div>
+                </details>
+              </div>
+            ))
+          )}
+        </div>
       </main>
       <footer className="mb-4 text-sm text-white/40">
         {code && (
