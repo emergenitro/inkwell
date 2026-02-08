@@ -108,6 +108,27 @@ export default function Home() {
     }
   };
 
+  const handleCodeInput = async (e) => {
+    const inputCode = e.target.value.trim();
+    if (!inputCode) return;
+
+    setLoading(true);
+    fetch(`/api/journal/${inputCode}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Journal not found");
+        return res.json();
+      })
+      .then((data) => {
+        setName(data.name);
+        setCode(data.code);
+        setEntries(data.entries || []);
+      })
+      .catch((err) => {
+        alert("Journal not found. Please check your code and try again.");
+      })
+      .finally(() => setLoading(false));
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen justify-center items-center font-fraunces text-white bg-gradient-to-br from-slate-900 to-slate-950">
@@ -188,7 +209,7 @@ export default function Home() {
             your code: <span className="text-white/80 font-mono">{code}</span>
           </p>
         )}
-        <p>got a code already? <input type="text" placeholder="enter here" className="bg-transparent border-b-2 border-white/0 focus:border-white/80 outline-none text-center transition-all duration-200 placeholder:text-white/40 placeholder:font-light p-0 m-0 text-sm font-fraunces"></input></p>
+        <p>got a code already? <input type="text" placeholder="enter here" className="bg-transparent border-b-2 border-white/0 focus:border-white/80 outline-none text-center transition-all duration-200 placeholder:text-white/40 placeholder:font-light p-0 m-0 text-sm font-fraunces" onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }} onBlur={handleCodeInput}></input></p>
         your private journal. no accounts. no passwords.
       </footer>
     </div>
