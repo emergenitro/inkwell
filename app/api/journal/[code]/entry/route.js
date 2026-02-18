@@ -11,6 +11,10 @@ export async function POST(request, { params }) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }
 
+    if (session.code !== code) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    }
+
     const journal = await Journal.findOne({ code: code });
 
     if (!journal) {
@@ -18,6 +22,14 @@ export async function POST(request, { params }) {
     }
 
     const entryData = await request.json();
+
+    if (!entryData.title || entryData.title.length > 200) {
+        return new Response(JSON.stringify({ error: "Title must be between 1 and 200 characters" }), { status: 400 });
+    }
+    if (!entryData.content || entryData.content.length > 50000) {
+        return new Response(JSON.stringify({ error: "Content must be between 1 and 50,000 characters" }), { status: 400 });
+    }
+
     const newEntry = {
         _id: new mongoose.Types.ObjectId(),
         title: entryData.title,

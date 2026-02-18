@@ -26,6 +26,10 @@ export async function POST(request) {
     const session = await getSession();
     const { name } = await request.json() || {};
 
+    if (!name || name.trim().length === 0 || name.length > 20) {
+        return NextResponse.json({ error: "Name must be between 1 and 20 characters" }, { status: 400 });
+    }
+
     if (session) {
         const existing = await Journal.findOne({ code: session.code });
         if (existing) {
